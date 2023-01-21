@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
+import nltk
+import seaborn as sns
 
 
 class DataPreparation:
@@ -13,6 +15,13 @@ class DataPreparation:
 
         # take only the sources with translated information from Bulgarian to English:
         nlp_df = nlp_df[~nlp_df['translated_body'].isnull()].reset_index()
+
+        # Extract the text body
+        text = " ".join(text_body for text_body in nlp_df['translated_body'])
+
+        # get word frequency :
+        self.word_frequency(text=text)
+
 
         # count_by source_url
         sources = nlp_df['source_name'].value_counts()
@@ -47,24 +56,41 @@ class DataPreparation:
         file_name = Path(self.config.data_path)
         return pd.read_pickle(file_name.resolve())
 
+    def word_frequency(self, text):
+        """
+        Display word frequency to better understand the data
 
-#
-# all_texts = []
-#
-# from bs4 import BeautifulSoup
-# import requests
-#
-# def parse_article(article_url):
-#     print("Downloading {}".format(article_url))
-#     r = requests.get(article_url)
-#     soup = BeautifulSoup(r.text, "html.parser")
-#     ps = soup.find_all('p')
-#     text = "\n".join(p.get_text() for p in ps)
-#     return text
-#
-# for article in xx['source_url']:
-#     all_texts.append(parse_article(article))
-#
-# cloud = get_wordcloud(" ".join(all_texts))
-# articles.append(Article(url=None, image=cloud))  # no URL for the "meta-article"
-# return render_template('home.html', articles=articles)
+        source : https://www.milindsoorya.com/blog/introduction-to-word-frequencies-in-nlp
+
+        :param text: Combined text bodies
+        :return:
+        """
+        nltk.download("stopwords")
+        stop_words = nltk.corpus.stopwords.words('english')
+        stop_words.append("also")
+
+        # tokenization
+        tokenized_input = text.split()
+
+        # lowercase the text
+        tokenized_input = list(map(lambda x: x.lower(), tokenized_input))
+
+        # remove digits and special characters
+        tokenized_clean = []
+        for word in tokenized_input:
+            if word.isalpha() == True:
+                tokenized_clean.append(word)
+
+        # get the list without stop words
+        tokenized_final = []
+        for word in tokenized_clean:
+            if word not in stop_words:
+                tokenized_final.append(word)
+
+        sns.set_style('darkgrid')
+        fig = plt.figure(figsize=(10, 4))
+        nlp_words = nltk.FreqDist(tokenized_final)
+        nlp_words.plot(20)
+        # plt.show()
+        fig.savefig('src/output/word_frequency_distribution.png', bbox_inches="tight")
+        return 1+1
