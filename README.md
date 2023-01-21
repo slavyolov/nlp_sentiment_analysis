@@ -20,8 +20,12 @@ python -m venv ~/venvs/nlp-sa
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
+- add "src" directory as source directory (PyCharm)
 
-```
+
+
+
+
 
 # Windows 10 setup
 
