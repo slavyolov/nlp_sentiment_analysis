@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 
@@ -13,7 +14,33 @@ class DataPreparation:
         # take only the sources with translated information from Bulgarian to English:
         nlp_df = nlp_df[~nlp_df['translated_body'].isnull()].reset_index()
 
-        # take source
+        # count_by source_url
+        sources = nlp_df['source_name'].value_counts()
+
+        # nlp_df.to_csv("src/output/english_information.csv")
+        bmw = nlp_df[nlp_df['source_name'] == "bmwpower-bg.net/forums"]
+        print(bmw['body_clean'].to_markdown())
+
+        bg_mamma = nlp_df[nlp_df['source_name'] == "bg-mamma.com"]
+        print(bg_mamma['body_clean'].to_markdown())
+
+        # word cloud
+        from wordcloud import WordCloud
+        import matplotlib.pyplot as plt
+        text = " ".join(text_body for text_body in bmw['translated_body'])
+        word_cloud = WordCloud(collocations=False, background_color='white').generate(text=text)
+        # plt.imshow(word_cloud, interpolation='bilinear')
+        # plt.axis("off")
+        # plt.show()
+
+        word_cloud = WordCloud(collocations=False, background_color='white')\
+            .generate(text=text).to_file("src/output/site_bmw.png")
+
+        text = " ".join(text_body for text_body in nlp_df['translated_body'])
+        word_cloud = WordCloud(collocations=False, background_color='white')\
+            .generate(text=text).to_file("src/output/nlp_df.png")
+
+
         return 1+1
 
     def read_data(self):
