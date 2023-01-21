@@ -10,4 +10,4 @@
 # install the packages in the requirements.txt file
 
 # Hints :
-- reading files in Windows (replace "\" with "/")
+- reading files in Windows (replace "\\" with "/")
