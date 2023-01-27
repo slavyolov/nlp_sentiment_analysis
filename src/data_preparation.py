@@ -3,12 +3,16 @@ import pandas as pd
 from pathlib import Path
 import nltk
 import seaborn as sns
+from setup_logger import create_logger
 # from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import logging
+
 
 
 class DataPreparation:
     def __init__(self, config):
         self.config = config
+        self.logger = create_logger(file_path='src/output/data_preparation.log')
         self.data = self.read_data()
 
     def run(self):
@@ -18,29 +22,36 @@ class DataPreparation:
         nlp_df = nlp_df[~nlp_df['translated_body'].isnull()].reset_index()
         self.data_size(nlp_df, message="translated_body == EN")
 
-        print("values count based on source type", nlp_df["source_type_name"].value_counts())
-        #TODO
+        # Check the 'sentiment' field
+        self.logger.log(logging.INFO, f'Values count sentiment column :\n{nlp_df["sentiment"].value_counts()}')
 
-        #TODO: there are annotations ?
-        print("Existing labels", nlp_df["sentiment"].value_counts())
+        # Check the 'source_type_name' field
+        self.logger.log(logging.INFO, f'Values count source_type_name column :\n{nlp_df["source_type_name"].value_counts()}')
 
-        # take the labels from the RNN model :
-        xx = nlp_df[nlp_df["sentiment"].isnull() == False]
-        xx["sentiment"].to_list()[0].values()
-        get_rnn_scores = xx["sentiment"].to_list()
+        # Remove rows that are rarely expressing sentiments
+        source_types_to_remove = ["Government Website", "Company Website"]
+        nlp_df = nlp_df[~nlp_df['source_type_name'].isin(source_types_to_remove)]
+        self.logger.log(logging.INFO,
+                        f'Values count source_type_name column - after filtering :\n{nlp_df["source_type_name"].value_counts()}')
+
+        # take the labels from the Annotated field / RNN model :
+        existing_annotations_df = nlp_df[nlp_df["sentiment"].isnull() == False]
+        existing_annotations_df.reset_index(drop=True, inplace=True)
+        get_rnn_scores = existing_annotations_df["sentiment"].to_list()
         get_rnn_scores = [int(x["annotation_class"]) for x in get_rnn_scores]
-        column_name = "label_" + "200311_1621_GS_BG_MM_teXnetModelWordvecsMultiClassRNN_R80"
         score_labels = ['positive' if score == 1
-                     else 'negative' if score == -1
-                     else 'neutral'
-                     for score in get_rnn_scores]
+                        else 'negative' if score == -1
+                        else 'neutral'
+                        for score in get_rnn_scores]
 
+        existing_annotations_df["existing_label"] = score_labels
+        existing_annotations_df = existing_annotations_df[["key", "sentiment", "existing_label"]]
 
-        # # Extract the text body
-        # text = " ".join(text_body for text_body in nlp_df['translated_body'])
-        #
-        # # get word frequency :
-        # self.word_frequency(text=text)
+        # Extract the text body
+        text = " ".join(text_body for text_body in nlp_df['translated_body'])
+
+        # get word frequency :
+        self.word_frequency(text=text)
 
         # count_by source_url
         # sources = nlp_df['source_name'].value_counts()
