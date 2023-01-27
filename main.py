@@ -7,8 +7,7 @@ config = ConfigFactory.parse_file('config/COMMON.conf')
 
 if __name__ == '__main__':
     data_preparation = DataPreparation(config=config)
-    # noinspection PyInterpreter
-    data_preparation.run()
+    nlp_df, existing_annotations_df = data_preparation.run()
     print("ok")
 
     # print_hi('PyCharm')

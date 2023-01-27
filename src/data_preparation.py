@@ -1,3 +1,4 @@
+import logging
 import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
@@ -5,8 +6,6 @@ import nltk
 import seaborn as sns
 from setup_logger import create_logger
 # from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-import logging
-
 
 
 class DataPreparation:
@@ -23,16 +22,34 @@ class DataPreparation:
         self.data_size(nlp_df, message="translated_body == EN")
 
         # Check the 'sentiment' field
-        self.logger.log(logging.INFO, f'Values count sentiment column :\n{nlp_df["sentiment"].value_counts()}')
+        self.logger.log(logging.INFO,
+                        f'\nValues count sentiment column :\n{nlp_df["sentiment"].value_counts()}')
 
         # Check the 'source_type_name' field
-        self.logger.log(logging.INFO, f'Values count source_type_name column :\n{nlp_df["source_type_name"].value_counts()}')
+        self.logger.log(logging.INFO,
+                        f'\nValues count source_type_name column :\n{nlp_df["source_type_name"].value_counts()}')
 
         # Remove rows that are rarely expressing sentiments
         source_types_to_remove = ["Government Website", "Company Website"]
         nlp_df = nlp_df[~nlp_df['source_type_name'].isin(source_types_to_remove)]
         self.logger.log(logging.INFO,
-                        f'Values count source_type_name column - after filtering :\n{nlp_df["source_type_name"].value_counts()}')
+                        f"""\nValues count source_type_name column - after 
+                            filtering :\n{nlp_df['source_type_name'].value_counts()}""")
+
+        # count_by source_name
+        self.logger.log(logging.INFO,
+                        f"""\nValues count source_name column - after 
+                            filtering :\n{nlp_df['source_name'].value_counts()}""")
+
+        # plot the source_names
+        source_names_count = pd.DataFrame(nlp_df['source_name'].value_counts().reset_index().values,
+                                          columns=["source_name", "count"])
+
+        fig = plt.figure(figsize=(10, 4))
+        plt.xticks(rotation=45)
+        bar_plot_top10 = sns.barplot(data=source_names_count[:5], x="source_name", y="count")
+        fig.savefig('src/output/bar_plot_source_names.png', bbox_inches="tight")
+        plt.close()
 
         # take the labels from the Annotated field / RNN model :
         existing_annotations_df = nlp_df[nlp_df["sentiment"].isnull() == False]
@@ -47,104 +64,11 @@ class DataPreparation:
         existing_annotations_df["existing_label"] = score_labels
         existing_annotations_df = existing_annotations_df[["key", "sentiment", "existing_label"]]
 
-        # Extract the text body
+        # Extract the text body and get word_frequency
         text = " ".join(text_body for text_body in nlp_df['translated_body'])
+        self.word_frequency(text=text) #TODO: close the fig
 
-        # get word frequency :
-        self.word_frequency(text=text)
-
-        # count_by source_url
-        # sources = nlp_df['source_name'].value_counts()
-
-        # Filter only the information coming from forums and "bg-mamma.com"
-        # sources_l = nlp_df['source_name'].to_list()
-        # forum_sources = [source for source in sources_l if "forum" in source]
-        # forum_sources.append("bg-mamma.com")
-        # nlp_df = nlp_df[nlp_df["source_name"].isin(forum_sources)]
-        # nlp_df.reset_index(drop=True, inplace=True)
-        # self.data_size(nlp_df, message="forums and bg-mamma")
-
-        # Select only cases that have both 'electronic' and 'government'
-        nlp_df = nlp_df[(nlp_df["translated_body"].str.contains("electronic")) & (
-            nlp_df["translated_body"].str.contains("government"))]
-        nlp_df.reset_index(drop=True, inplace=True)
-        self.data_size(nlp_df, message="electronic government")
-
-        # Afinn sentiment analysis :
-        from afinn import Afinn
-        afinn = Afinn()
-        sentiments = []
-        for sentence in nlp_df["translated_body"].to_list():
-            sentiments.append(afinn.score(sentence))
-
-        sentiment = ['positive' if score > 0
-                     else 'negative' if score < 0
-        else 'neutral'
-                     for score in sentiments]
-
-        df = pd.DataFrame()
-        df['topic'] = nlp_df["translated_body"]
-        df['scores'] = sentiments
-        df['sentiments'] = sentiment
-        print(df)
-
-        #TODO: use source_type_name for filtering/grouping of results (also evaluation)
-
-
-        # Sentiment analysis using Vader
-        sid_obj = SentimentIntensityAnalyzer()
-        sentiments = []
-        for sentence in nlp_df["translated_body"].to_list():
-            sentiments.append(sid_obj.polarity_scores(sentence))
-
-        sentiments_vader_df = pd.DataFrame.from_records(sentiments)
-        sentiments_vader_df['predictions'] = sentiments_vader_df.apply(self.sentiment_labels, axis=1)
-        sentiments_vader_df['translated_body'] = nlp_df[['translated_body']]
-        sentiments_vader_df['body_clean'] = nlp_df[['body_clean']]
-
-        print("sentiments_vader_df row count\n", sentiments_vader_df["predictions"].value_counts())
-        print("")
-        print("sentiments_vader_df share\n", sentiments_vader_df["predictions"].value_counts(normalize=True).round(1))
-
-        # pick random sample for labeling
-        df_sample = sentiments_vader_df.groupby("predictions", group_keys=False).apply(lambda x: x.sample(frac=0.1))
-        print("df_sample row count\n", df_sample["predictions"].value_counts())
-        print("")
-        print("df_sample share\n", df_sample["predictions"].value_counts(normalize=True).round(1))
-
-        # TODO: filter only electeronic government
-
-
-        # TODO: remove quotes when doing sentiment analysis. Vader ?
-        df_sample.to_excel("src/output/sample_to_label.xlsx")
-        with open('readme.txt', 'w') as f:
-            f.write('readme')
-
-        # nlp_df.to_csv("src/output/english_information.csv")
-        bmw = nlp_df[nlp_df['source_name'] == "bmwpower-bg.net/forums"]
-        print(bmw['body_clean'].to_markdown())
-
-        bg_mamma = nlp_df[nlp_df['source_name'] == "bg-mamma.com"]
-        print(bg_mamma['body_clean'].to_markdown())
-
-        # word cloud - #TODO : piut in a function
-        from wordcloud import WordCloud
-        import matplotlib.pyplot as plt
-        text = " ".join(text_body for text_body in bmw['translated_body'])
-        word_cloud = WordCloud(collocations=False, background_color='white').generate(text=text)
-        # plt.imshow(word_cloud, interpolation='bilinear')
-        # plt.axis("off")
-        # plt.show()
-
-        word_cloud = WordCloud(collocations=False, background_color='white')\
-            .generate(text=text).to_file("src/output/site_bmw.png")
-
-        text = " ".join(text_body for text_body in nlp_df['translated_body'])
-        word_cloud = WordCloud(collocations=False, background_color='white')\
-            .generate(text=text).to_file("src/output/nlp_df.png")
-
-
-        return 1+1
+        return nlp_df, existing_annotations_df
 
     def read_data(self):
         file_name = Path(self.config.data_path)
@@ -154,7 +78,8 @@ class DataPreparation:
     def data_size(df, message):
         print(f"row count after filtering | {message} | ", len(df))
 
-    def word_frequency(self, text):
+    @staticmethod
+    def word_frequency(text) -> None:
         """
         Display word frequency to better understand the data
 
@@ -189,9 +114,8 @@ class DataPreparation:
         fig = plt.figure(figsize=(10, 4))
         nlp_words = nltk.FreqDist(tokenized_final)
         nlp_words.plot(20)
-        # plt.show()
         fig.savefig('src/output/word_frequency_distribution.png', bbox_inches="tight")
-        return 1+1
+        plt.close()
 
     @staticmethod
     def sentiment_labels(row):
@@ -201,6 +125,20 @@ class DataPreparation:
             return 'Negative'
         else:
             return 'Neutral'
+
+
+class SentimentAnalysis:
+    def __init__(self, nlp_df):
+        self.nlp_df = nlp_df
+
+    def baseline(self):
+        pass
+
+    def lexi_vader(self):
+        pass
+
+    def lexicon_affin(self):
+        pass
 
 
 class SentimentAnalysis:
@@ -261,3 +199,92 @@ class SentimentAnalysis:
 
         else:
             print("Neutral")
+
+    # TODO: do mermaid ?
+
+    # Filter only the information coming from forums and "bg-mamma.com"
+    # sources_l = nlp_df['source_name'].to_list()
+    # forum_sources = [source for source in sources_l if "forum" in source]
+    # forum_sources.append("bg-mamma.com")
+    # nlp_df = nlp_df[nlp_df["source_name"].isin(forum_sources)]
+    # nlp_df.reset_index(drop=True, inplace=True)
+    # self.data_size(nlp_df, message="forums and bg-mamma")
+
+    # Select only cases that have both 'electronic' and 'government'
+    nlp_df = nlp_df[(nlp_df["translated_body"].str.contains("electronic")) & (
+        nlp_df["translated_body"].str.contains("government"))]
+    nlp_df.reset_index(drop=True, inplace=True)
+    self.data_size(nlp_df, message="electronic government")
+
+    # Afinn sentiment analysis :
+    from afinn import Afinn
+    afinn = Afinn()
+    sentiments = []
+    for sentence in nlp_df["translated_body"].to_list():
+        sentiments.append(afinn.score(sentence))
+
+    sentiment = ['positive' if score > 0
+                 else 'negative' if score < 0
+    else 'neutral'
+                 for score in sentiments]
+
+    df = pd.DataFrame()
+    df['topic'] = nlp_df["translated_body"]
+    df['scores'] = sentiments
+    df['sentiments'] = sentiment
+    print(df)
+
+    # TODO: use source_type_name for filtering/grouping of results (also evaluation)
+
+    # Sentiment analysis using Vader
+    sid_obj = SentimentIntensityAnalyzer()
+    sentiments = []
+    for sentence in nlp_df["translated_body"].to_list():
+        sentiments.append(sid_obj.polarity_scores(sentence))
+
+    sentiments_vader_df = pd.DataFrame.from_records(sentiments)
+    sentiments_vader_df['predictions'] = sentiments_vader_df.apply(self.sentiment_labels, axis=1)
+    sentiments_vader_df['translated_body'] = nlp_df[['translated_body']]
+    sentiments_vader_df['body_clean'] = nlp_df[['body_clean']]
+
+    print("sentiments_vader_df row count\n", sentiments_vader_df["predictions"].value_counts())
+    print("")
+    print("sentiments_vader_df share\n", sentiments_vader_df["predictions"].value_counts(normalize=True).round(1))
+
+    # pick random sample for labeling
+    df_sample = sentiments_vader_df.groupby("predictions", group_keys=False).apply(lambda x: x.sample(frac=0.1))
+    print("df_sample row count\n", df_sample["predictions"].value_counts())
+    print("")
+    print("df_sample share\n", df_sample["predictions"].value_counts(normalize=True).round(1))
+
+    # TODO: filter only electeronic government
+
+    # TODO: remove quotes when doing sentiment analysis. Vader ?
+    df_sample.to_excel("src/output/sample_to_label.xlsx")
+    with open('readme.txt', 'w') as f:
+        f.write('readme')
+
+    # nlp_df.to_csv("src/output/english_information.csv")
+    bmw = nlp_df[nlp_df['source_name'] == "bmwpower-bg.net/forums"]
+    print(bmw['body_clean'].to_markdown())
+
+    bg_mamma = nlp_df[nlp_df['source_name'] == "bg-mamma.com"]
+    print(bg_mamma['body_clean'].to_markdown())
+
+    # word cloud - #TODO : piut in a function
+    from wordcloud import WordCloud
+    # import matplotlib.pyplot as plt
+    text = " ".join(text_body for text_body in bmw['translated_body'])
+    word_cloud = WordCloud(collocations=False, background_color='white').generate(text=text)
+    # plt.imshow(word_cloud, interpolation='bilinear')
+    # plt.axis("off")
+    # plt.show()
+
+    word_cloud = WordCloud(collocations=False, background_color='white') \
+        .generate(text=text).to_file("src/output/site_bmw.png")
+
+    text = " ".join(text_body for text_body in nlp_df['translated_body'])
+    word_cloud = WordCloud(collocations=False, background_color='white') \
+        .generate(text=text).to_file("src/output/nlp_df.png")
+
+    return 1 + 1
