@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 import nltk
 import seaborn as sns
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+# from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 
 class DataPreparation:
@@ -18,6 +18,24 @@ class DataPreparation:
         nlp_df = nlp_df[~nlp_df['translated_body'].isnull()].reset_index()
         self.data_size(nlp_df, message="translated_body == EN")
 
+        print("values count based on source type", nlp_df["source_type_name"].value_counts())
+        #TODO
+
+        #TODO: there are annotations ?
+        print("Existing labels", nlp_df["sentiment"].value_counts())
+
+        # take the labels from the RNN model :
+        xx = nlp_df[nlp_df["sentiment"].isnull() == False]
+        xx["sentiment"].to_list()[0].values()
+        get_rnn_scores = xx["sentiment"].to_list()
+        get_rnn_scores = [int(x["annotation_class"]) for x in get_rnn_scores]
+        column_name = "label_" + "200311_1621_GS_BG_MM_teXnetModelWordvecsMultiClassRNN_R80"
+        score_labels = ['positive' if score == 1
+                     else 'negative' if score == -1
+                     else 'neutral'
+                     for score in get_rnn_scores]
+
+
         # # Extract the text body
         # text = " ".join(text_body for text_body in nlp_df['translated_body'])
         #
@@ -28,18 +46,38 @@ class DataPreparation:
         # sources = nlp_df['source_name'].value_counts()
 
         # Filter only the information coming from forums and "bg-mamma.com"
-        sources_l = nlp_df['source_name'].to_list()
-        forum_sources = [source for source in sources_l if "forum" in source]
-        forum_sources.append("bg-mamma.com")
-        nlp_df = nlp_df[nlp_df["source_name"].isin(forum_sources)]
-        nlp_df.reset_index(drop=True, inplace=True)
-        self.data_size(nlp_df, message="forums and bg-mamma")
+        # sources_l = nlp_df['source_name'].to_list()
+        # forum_sources = [source for source in sources_l if "forum" in source]
+        # forum_sources.append("bg-mamma.com")
+        # nlp_df = nlp_df[nlp_df["source_name"].isin(forum_sources)]
+        # nlp_df.reset_index(drop=True, inplace=True)
+        # self.data_size(nlp_df, message="forums and bg-mamma")
 
         # Select only cases that have both 'electronic' and 'government'
         nlp_df = nlp_df[(nlp_df["translated_body"].str.contains("electronic")) & (
             nlp_df["translated_body"].str.contains("government"))]
         nlp_df.reset_index(drop=True, inplace=True)
         self.data_size(nlp_df, message="electronic government")
+
+        # Afinn sentiment analysis :
+        from afinn import Afinn
+        afinn = Afinn()
+        sentiments = []
+        for sentence in nlp_df["translated_body"].to_list():
+            sentiments.append(afinn.score(sentence))
+
+        sentiment = ['positive' if score > 0
+                     else 'negative' if score < 0
+        else 'neutral'
+                     for score in sentiments]
+
+        df = pd.DataFrame()
+        df['topic'] = nlp_df["translated_body"]
+        df['scores'] = sentiments
+        df['sentiments'] = sentiment
+        print(df)
+
+        #TODO: use source_type_name for filtering/grouping of results (also evaluation)
 
 
         # Sentiment analysis using Vader
