@@ -9,22 +9,23 @@ class ModelEvaluation:
     def __init__(self, data):
         self.data = data
 
-    def plot_classification_report(self):
+    def plot_classification_report(self, y_true_col: str, y_pred_col: str, method: str):
         """
         Plot the classification report
 
         :return:
         """
-        clf_report = metrics.classification_report(y_true=self.data["random_labels"],
-                                                   y_pred=self.data["sentiment_vader"],
+        labels = ["negative", "positive", "neutral"]
+        clf_report = metrics.classification_report(y_true=self.data[y_true_col],
+                                                   y_pred=self.data[y_pred_col],
                                                    digits=3,
-                                                   labels=["negative", "positive", "neutral"],
-                                                   target_names=["negative", "positive", "neutral"],
+                                                   labels=labels,
+                                                   target_names=labels,
                                                    output_dict=True
                                                    )
         fig = plt.figure(figsize=(10, 4))
         sns.heatmap(pd.DataFrame(clf_report).iloc[:-1, :].T, annot=True)
-        fig.savefig('src/output/classification_report.png', bbox_inches="tight")
+        fig.savefig(f'src/output/plots/classification_report_{method}.png', bbox_inches="tight")
         plt.close()
 
     @staticmethod
@@ -39,7 +40,8 @@ class ModelEvaluation:
                               sum_stats=True,
                               figsize=None,
                               cmap='Blues',
-                              title=None
+                              title=None,
+                              method=None
                               ):
         """
         This function will make a pretty plot of an sklearn Confusion Matrix cm using a Seaborn heatmap visualization.
@@ -123,5 +125,5 @@ class ModelEvaluation:
         if title:
             plt.title(title)
 
-        fig.savefig('src/output/confusion_matrix_plot.png', bbox_inches="tight")
+        fig.savefig(f'src/output/plots/confusion_matrix_{method}.png', bbox_inches="tight")
         plt.close()

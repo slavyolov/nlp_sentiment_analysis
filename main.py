@@ -1,6 +1,8 @@
 from src.data_preparation import DataPreparation, SentimentAnalysis, ModelEvaluation
 from pyhocon import ConfigFactory
 import pandas as pd
+from collections import Counter
+from evaluation import ModelEvaluation
 
 
 config = ConfigFactory.parse_file('config/COMMON.conf')
@@ -31,11 +33,26 @@ if __name__ == '__main__':
                                sample_v_neu[["body_clean", "translated_body"]],
                                sample_v_neg[["body_clean", "translated_body"]]
                                ])
-        sample_df.to_excel("src/output/random_sample_to_label.xlsx")
+        sample_df.to_excel("src/output/data/random_sample_to_label.xlsx")
 
-    # Model evaluation
-    # Th
-    y_true = pd.read_excel
+    # Prepare data for model evaluation
+    def f(x):
+        a, b = Counter(x).most_common(1)[0]
+        return pd.Series([a, b])
+
+    annotations = pd.read_csv("src/input/Annotations_of_sample_data.csv")
+    annotations[['ground_truth_label', 'freq_count']] = annotations.apply(f, axis=1)
+
+    combined_df = pd.merge(left=combined_df, right=annotations[['index_orig_df', 'ground_truth_label']],
+                           how="left",
+                           left_on=combined_df.index, right_on="index_orig_df")
+
+    combined_df_w_expert_gt = combined_df[combined_df["ground_truth_label"].isnull() == False]
+    combined_df_w_existing_label = combined_df[combined_df["existing_label_from_RNN_model"].isnull() == False]
+
+    combined_df_w_expert_gt.to_excel("src/output/data/combined_df_w_expert_gt.xlsx")
+    combined_df_w_existing_label.to_excel("src/output/data/combined_df_w_existing_label.xlsx")
+
 
 
     # evaluation_metrics = ModelEvaluation(data=combined_df)
