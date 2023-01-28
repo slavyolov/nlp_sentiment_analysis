@@ -64,7 +64,7 @@ class DataPreparation:
                         for score in get_rnn_scores]
 
         existing_annotations_df["existing_label"] = score_labels
-        existing_annotations_df = existing_annotations_df[["key", "sentiment", "existing_label"]]
+        existing_annotations_df = existing_annotations_df[["key", "existing_label_from_RNN_model"]]
 
         # Extract the text body and get word_frequency
         text = " ".join(text_body for text_body in nlp_df['translated_body'])
