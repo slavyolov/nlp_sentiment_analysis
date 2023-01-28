@@ -1,11 +1,13 @@
 import logging
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from pathlib import Path
 import nltk
 import seaborn as sns
 from setup_logger import create_logger
-# from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from textblob import TextBlob
 
 
 class DataPreparation:
@@ -66,7 +68,9 @@ class DataPreparation:
 
         # Extract the text body and get word_frequency
         text = " ".join(text_body for text_body in nlp_df['translated_body'])
-        self.word_frequency(text=text) #TODO: close the fig
+        # self.word_frequency(text=text)  #TODO: close the fig
+
+        nlp_df.reset_index(drop=True, inplace=True)
 
         return nlp_df, existing_annotations_df
 
@@ -128,163 +132,233 @@ class DataPreparation:
 
 
 class SentimentAnalysis:
-    def __init__(self, nlp_df):
-        self.nlp_df = nlp_df
-
-    def baseline(self):
-        pass
-
-    def lexi_vader(self):
-        pass
-
-    def lexicon_affin(self):
-        pass
-
-
-class SentimentAnalysis:
     def __init__(self, data):
         self.data = data
 
     def run(self):
+        """
+        Return sentiment analysis using different approaches
 
-        # import SentimentIntensityAnalyzer class
-        # from vaderSentiment.vaderSentiment module.
-        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-        sid_obj = SentimentIntensityAnalyzer()
-        # txt = ["Rumen Draganov received an award for overall contribution to the development, promotion and creation of a historical memory for tourism in the country",
-        #        "Lyubozar Fratev received an award for his contribution to the development and promotion of regional tourism"
-        #        ]
-        # txt = ["study is going on as usual", "I am very sad today."]
+        :return:
+        """
+        return self.baseline(), self.vader(), self.text_blob()
 
-        txt = nlp_df["translated_body"].to_list()[:5]
+    def baseline(self):
+        random_sentiments = self.data[["key"]]
+        random_sentiments["random_labels"] = pd.DataFrame(
+            np.random.choice(["positive", "negative", "neutral"], size=len(self.data))
+        )
+        return random_sentiments
 
-        for sentence in txt:
-            print(sid_obj.polarity_scores(sentence))
+    def vader(self) -> pd.DataFrame:
+        """
+        Provide sentiments using Vader (lexicon) polarity_scores method. The method gives a sentiment dictionary
+        which contains pos, neg, neu, and compound scores.
+
+        :return:
+        """
+        vader_ = SentimentIntensityAnalyzer()
+
+        texts = self.data["translated_body"].to_list()
+
+        sentiments_dict = []
+        for text in texts:
+            sentiments_dict.append(vader_.polarity_scores(text))
+
+        sentiments_df = pd.DataFrame(sentiments_dict)
+        sentiments_df["key"] = self.data["key"]
+
+        # provide sentiment labels (https://github.com/cjhutto/vaderSentiment#about-the-scoring)
+        conditions = [
+            (sentiments_df['compound'] >= 0.05),
+            (sentiments_df['compound'] <= -0.05),
+            (sentiments_df['compound'] > -0.05) & (sentiments_df['compound'] < 0.05),
+        ]
+        values = ['positive', 'negative', 'neutral']
+
+        # create a new column and use np.select to assign values to it using our lists as arguments
+        sentiments_df['sentiment_vader'] = np.select(conditions, values)
+
+        return sentiments_df
+
+    def text_blob(self) -> pd.DataFrame:
+        """
+        The output of TextBlob sentiment is polarity and subjectivity.
+
+        Polarity score lies between (-1 to 1) where -1 identifies the most negative words such as ‘disgusting’,
+        ‘awful’, ‘pathetic’, and 1 identifies the most positive words like ‘excellent’, ‘best’.
+
+        Subjectivity score lies between (0 and 1), It shows the amount of personal opinion, If a sentence has high
+        subjectivity i.e. close to 1, It resembles that the text contains more personal opinion than factual
+        information.
+
+        For the purpose of the curent project we will employ only the polarity score method. For neutral we are going
+        to take the same range as in Vader [-0.05, 0.05]
+
+        :return:
+        """
+        texts = self.data["translated_body"].to_list()
+
+        polarity_scores = []
+        for text in texts:
+            text_blob_ = TextBlob(text)
+            polarity_scores.append(text_blob_.sentiment.polarity)
+
+        polarity_labels = ['positive' if score >= 0.05
+                           else 'negative' if score < -0.05
+                           else 'neutral'
+                           for score in polarity_scores]
+
+        sentiments_df = self.data[["key"]]
+        sentiments_df['scores'] = polarity_scores
+        sentiments_df['text_blob_sentiments'] = polarity_labels
+        return sentiments_df
+
+
+# class SentimentAnalysis2:
+#     def __init__(self, data):
+#         self.data = data
+#
+#     def run(self):
+#
+#         # import SentimentIntensityAnalyzer class
+#         # from vaderSentiment.vaderSentiment module.
+#
+#         sid_obj = SentimentIntensityAnalyzer()
+#         # txt = ["Rumen Draganov received an award for overall contribution to the development, promotion and creation of a historical memory for tourism in the country",
+#         #        "Lyubozar Fratev received an award for his contribution to the development and promotion of regional tourism"
+#         #        ]
+#         # txt = ["study is going on as usual", "I am very sad today."]
+#
+#         txt = nlp_df["translated_body"].to_list()[:5]
+#
+#         for sentence in txt:
+#             print(sid_obj.polarity_scores(sentence))
+#
 
 
 
 
-
-    def sentiment_labels(sentence):
-        if sentiment_dict['compound'] >= 0.05:
-            print("Positive")
-
-        elif sentiment_dict['compound'] <= - 0.05:
-            print("Negative")
-
-        else:
-            print("Neutral")
-
-        # Create a SentimentIntensityAnalyzer object.
-        sid_obj = SentimentIntensityAnalyzer()
-
-        # polarity_scores method of SentimentIntensityAnalyzer
-        # object gives a sentiment dictionary.
-        # which contains pos, neg, neu, and compound scores.
-        sentiment_dict = sid_obj.polarity_scores(sentence)
-
-        print("Overall sentiment dictionary is : ", sentiment_dict)
-        print("sentence was rated as ", sentiment_dict['neg'] * 100, "% Negative")
-        print("sentence was rated as ", sentiment_dict['neu'] * 100, "% Neutral")
-        print("sentence was rated as ", sentiment_dict['pos'] * 100, "% Positive")
-
-        print("Sentence Overall Rated As", end=" ")
-
-        # decide sentiment as positive, negative and neutral
-        if sentiment_dict['compound'] >= 0.05:
-            print("Positive")
-
-        elif sentiment_dict['compound'] <= - 0.05:
-            print("Negative")
-
-        else:
-            print("Neutral")
-
-    # TODO: do mermaid ?
-
-    # Filter only the information coming from forums and "bg-mamma.com"
-    # sources_l = nlp_df['source_name'].to_list()
-    # forum_sources = [source for source in sources_l if "forum" in source]
-    # forum_sources.append("bg-mamma.com")
-    # nlp_df = nlp_df[nlp_df["source_name"].isin(forum_sources)]
+    # def sentiment_labels(sentence):
+    #     if sentiment_dict['compound'] >= 0.05:
+    #         print("Positive")
+    #
+    #     elif sentiment_dict['compound'] <= - 0.05:
+    #         print("Negative")
+    #
+    #     else:
+    #         print("Neutral")
+    #
+    #     # Create a SentimentIntensityAnalyzer object.
+    #     sid_obj = SentimentIntensityAnalyzer()
+    #
+    #     # polarity_scores method of SentimentIntensityAnalyzer
+    #     # object gives a sentiment dictionary.
+    #     # which contains pos, neg, neu, and compound scores.
+    #     sentiment_dict = sid_obj.polarity_scores(sentence)
+    #
+    #     print("Overall sentiment dictionary is : ", sentiment_dict)
+    #     print("sentence was rated as ", sentiment_dict['neg'] * 100, "% Negative")
+    #     print("sentence was rated as ", sentiment_dict['neu'] * 100, "% Neutral")
+    #     print("sentence was rated as ", sentiment_dict['pos'] * 100, "% Positive")
+    #
+    #     print("Sentence Overall Rated As", end=" ")
+    #
+    #     # decide sentiment as positive, negative and neutral
+    #     if sentiment_dict['compound'] >= 0.05:
+    #         print("Positive")
+    #
+    #     elif sentiment_dict['compound'] <= - 0.05:
+    #         print("Negative")
+    #
+    #     else:
+    #         print("Neutral")
+    #
+    # # TODO: do mermaid ?
+    #
+    # # Filter only the information coming from forums and "bg-mamma.com"
+    # # sources_l = nlp_df['source_name'].to_list()
+    # # forum_sources = [source for source in sources_l if "forum" in source]
+    # # forum_sources.append("bg-mamma.com")
+    # # nlp_df = nlp_df[nlp_df["source_name"].isin(forum_sources)]
+    # # nlp_df.reset_index(drop=True, inplace=True)
+    # # self.data_size(nlp_df, message="forums and bg-mamma")
+    #
+    # # Select only cases that have both 'electronic' and 'government'
+    # nlp_df = nlp_df[(nlp_df["translated_body"].str.contains("electronic")) & (
+    #     nlp_df["translated_body"].str.contains("government"))]
     # nlp_df.reset_index(drop=True, inplace=True)
-    # self.data_size(nlp_df, message="forums and bg-mamma")
-
-    # Select only cases that have both 'electronic' and 'government'
-    nlp_df = nlp_df[(nlp_df["translated_body"].str.contains("electronic")) & (
-        nlp_df["translated_body"].str.contains("government"))]
-    nlp_df.reset_index(drop=True, inplace=True)
-    self.data_size(nlp_df, message="electronic government")
-
-    # Afinn sentiment analysis :
-    from afinn import Afinn
-    afinn = Afinn()
-    sentiments = []
-    for sentence in nlp_df["translated_body"].to_list():
-        sentiments.append(afinn.score(sentence))
-
-    sentiment = ['positive' if score > 0
-                 else 'negative' if score < 0
-    else 'neutral'
-                 for score in sentiments]
-
-    df = pd.DataFrame()
-    df['topic'] = nlp_df["translated_body"]
-    df['scores'] = sentiments
-    df['sentiments'] = sentiment
-    print(df)
-
-    # TODO: use source_type_name for filtering/grouping of results (also evaluation)
-
-    # Sentiment analysis using Vader
-    sid_obj = SentimentIntensityAnalyzer()
-    sentiments = []
-    for sentence in nlp_df["translated_body"].to_list():
-        sentiments.append(sid_obj.polarity_scores(sentence))
-
-    sentiments_vader_df = pd.DataFrame.from_records(sentiments)
-    sentiments_vader_df['predictions'] = sentiments_vader_df.apply(self.sentiment_labels, axis=1)
-    sentiments_vader_df['translated_body'] = nlp_df[['translated_body']]
-    sentiments_vader_df['body_clean'] = nlp_df[['body_clean']]
-
-    print("sentiments_vader_df row count\n", sentiments_vader_df["predictions"].value_counts())
-    print("")
-    print("sentiments_vader_df share\n", sentiments_vader_df["predictions"].value_counts(normalize=True).round(1))
-
-    # pick random sample for labeling
-    df_sample = sentiments_vader_df.groupby("predictions", group_keys=False).apply(lambda x: x.sample(frac=0.1))
-    print("df_sample row count\n", df_sample["predictions"].value_counts())
-    print("")
-    print("df_sample share\n", df_sample["predictions"].value_counts(normalize=True).round(1))
-
-    # TODO: filter only electeronic government
-
-    # TODO: remove quotes when doing sentiment analysis. Vader ?
-    df_sample.to_excel("src/output/sample_to_label.xlsx")
-    with open('readme.txt', 'w') as f:
-        f.write('readme')
-
-    # nlp_df.to_csv("src/output/english_information.csv")
-    bmw = nlp_df[nlp_df['source_name'] == "bmwpower-bg.net/forums"]
-    print(bmw['body_clean'].to_markdown())
-
-    bg_mamma = nlp_df[nlp_df['source_name'] == "bg-mamma.com"]
-    print(bg_mamma['body_clean'].to_markdown())
-
-    # word cloud - #TODO : piut in a function
-    from wordcloud import WordCloud
-    # import matplotlib.pyplot as plt
-    text = " ".join(text_body for text_body in bmw['translated_body'])
-    word_cloud = WordCloud(collocations=False, background_color='white').generate(text=text)
-    # plt.imshow(word_cloud, interpolation='bilinear')
-    # plt.axis("off")
-    # plt.show()
-
-    word_cloud = WordCloud(collocations=False, background_color='white') \
-        .generate(text=text).to_file("src/output/site_bmw.png")
-
-    text = " ".join(text_body for text_body in nlp_df['translated_body'])
-    word_cloud = WordCloud(collocations=False, background_color='white') \
-        .generate(text=text).to_file("src/output/nlp_df.png")
-
-    return 1 + 1
+    # self.data_size(nlp_df, message="electronic government")
+    #
+    # # Afinn sentiment analysis :
+    # from afinn import Afinn
+    # afinn = Afinn()
+    # sentiments = []
+    # for sentence in nlp_df["translated_body"].to_list():
+    #     sentiments.append(afinn.score(sentence))
+    #
+    # sentiment = ['positive' if score > 0
+    #              else 'negative' if score < 0
+    # else 'neutral'
+    #              for score in sentiments]
+    #
+    # df = pd.DataFrame()
+    # df['topic'] = nlp_df["translated_body"]
+    # df['scores'] = sentiments
+    # df['sentiments'] = sentiment
+    # print(df)
+    #
+    # # TODO: use source_type_name for filtering/grouping of results (also evaluation)
+    #
+    # # Sentiment analysis using Vader
+    # sid_obj = SentimentIntensityAnalyzer()
+    # sentiments = []
+    # for sentence in nlp_df["translated_body"].to_list():
+    #     sentiments.append(sid_obj.polarity_scores(sentence))
+    #
+    # sentiments_vader_df = pd.DataFrame.from_records(sentiments)
+    # sentiments_vader_df['predictions'] = sentiments_vader_df.apply(self.sentiment_labels, axis=1)
+    # sentiments_vader_df['translated_body'] = nlp_df[['translated_body']]
+    # sentiments_vader_df['body_clean'] = nlp_df[['body_clean']]
+    #
+    # print("sentiments_vader_df row count\n", sentiments_vader_df["predictions"].value_counts())
+    # print("")
+    # print("sentiments_vader_df share\n", sentiments_vader_df["predictions"].value_counts(normalize=True).round(1))
+    #
+    # # pick random sample for labeling
+    # df_sample = sentiments_vader_df.groupby("predictions", group_keys=False).apply(lambda x: x.sample(frac=0.1))
+    # print("df_sample row count\n", df_sample["predictions"].value_counts())
+    # print("")
+    # print("df_sample share\n", df_sample["predictions"].value_counts(normalize=True).round(1))
+    #
+    # # TODO: filter only electeronic government
+    #
+    # # TODO: remove quotes when doing sentiment analysis. Vader ?
+    # df_sample.to_excel("src/output/sample_to_label.xlsx")
+    # with open('readme.txt', 'w') as f:
+    #     f.write('readme')
+    #
+    # # nlp_df.to_csv("src/output/english_information.csv")
+    # bmw = nlp_df[nlp_df['source_name'] == "bmwpower-bg.net/forums"]
+    # print(bmw['body_clean'].to_markdown())
+    #
+    # bg_mamma = nlp_df[nlp_df['source_name'] == "bg-mamma.com"]
+    # print(bg_mamma['body_clean'].to_markdown())
+    #
+    # # word cloud - #TODO : piut in a function
+    # from wordcloud import WordCloud
+    # # import matplotlib.pyplot as plt
+    # text = " ".join(text_body for text_body in bmw['translated_body'])
+    # word_cloud = WordCloud(collocations=False, background_color='white').generate(text=text)
+    # # plt.imshow(word_cloud, interpolation='bilinear')
+    # # plt.axis("off")
+    # # plt.show()
+    #
+    # word_cloud = WordCloud(collocations=False, background_color='white') \
+    #     .generate(text=text).to_file("src/output/site_bmw.png")
+    #
+    # text = " ".join(text_body for text_body in nlp_df['translated_body'])
+    # word_cloud = WordCloud(collocations=False, background_color='white') \
+    #     .generate(text=text).to_file("src/output/nlp_df.png")
+    #
+    # return 1 + 1
