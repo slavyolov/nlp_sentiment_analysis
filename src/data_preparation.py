@@ -8,6 +8,7 @@ import seaborn as sns
 from setup_logger import create_logger
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from textblob import TextBlob
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 
 
 class DataPreparation:
@@ -49,7 +50,7 @@ class DataPreparation:
 
         fig = plt.figure(figsize=(10, 4))
         plt.xticks(rotation=45)
-        bar_plot_top10 = sns.barplot(data=source_names_count[:5], x="source_name", y="count")
+        sns.barplot(data=source_names_count[:5], x="source_name", y="count")
         fig.savefig('src/output/bar_plot_source_names.png', bbox_inches="tight")
         plt.close()
 
@@ -63,7 +64,7 @@ class DataPreparation:
                         else 'neutral'
                         for score in get_rnn_scores]
 
-        existing_annotations_df["existing_label"] = score_labels
+        existing_annotations_df["existing_label_from_RNN_model"] = score_labels
         existing_annotations_df = existing_annotations_df[["key", "existing_label_from_RNN_model"]]
 
         # Extract the text body and get word_frequency
@@ -205,7 +206,7 @@ class SentimentAnalysis:
             polarity_scores.append(text_blob_.sentiment.polarity)
 
         polarity_labels = ['positive' if score >= 0.05
-                           else 'negative' if score < -0.05
+                           else 'negative' if score <= -0.05
                            else 'neutral'
                            for score in polarity_scores]
 
@@ -213,6 +214,128 @@ class SentimentAnalysis:
         sentiments_df['scores'] = polarity_scores
         sentiments_df['text_blob_sentiments'] = polarity_labels
         return sentiments_df
+
+
+class ModelEvaluation:
+    def __init__(self, data):
+        self.data = data
+
+    def run(self, y_true, y_pred):
+        labels = ['True Neg', 'False Pos', 'False Neg', 'True Pos']
+        categories = ['negative', 'positive', 'neutral']
+        cf_matrix = confusion_matrix(y_true=y_true, y_pred=y_pred)
+        self.make_confusion_matrix(cf_matrix,
+                                   group_names=labels,
+                                   categories=categories,
+                                   cmap='binary')
+        return self.evaluate(y_test=y_test, y_pred=y_pred)
+
+    @staticmethod
+    def make_confusion_matrix(cf,
+                              group_names=None,
+                              categories='auto',
+                              count=True,
+                              percent=True,
+                              cbar=True,
+                              xyticks=True,
+                              xyplotlabels=True,
+                              sum_stats=True,
+                              figsize=None,
+                              cmap='Blues',
+                              title=None,
+                              y_true=None,
+                              y_pred=None):
+        """
+        This function will make a pretty plot of an sklearn Confusion Matrix cm using a Seaborn heatmap visualization.
+
+        :param cf:            confusion matrix to be passed in
+        :param group_names:   List of strings that represent the labels row by row to be shown in each square.
+        :param categories:    List of strings containing the categories to be displayed on the x,y axis. Default is
+                              'auto'
+        :param count:         If True, show the raw number in the confusion matrix. Default is True.
+        :param normalize:     If True, show the proportions for each category. Default is True.
+        :param cbar:          If True, show the color bar. The cbar values are based off the values in the confusion
+                              matrix. Default is True.
+        :param xyticks:       If True, show x and y ticks. Default is True.
+        :param xyplotlabels:  If True, show 'True Label' and 'Predicted Label' on the figure. Default is True.
+        :param sum_stats:     If True, display summary statistics below the figure. Default is True.
+        :param figsize:       Tuple representing the figure size. Default will be the matplotlib rcParams value.
+        :param cmap:          Colormap of the values displayed from matplotlib.pyplot.cm. Default is 'Blues'
+                              See http://matplotlib.org/examples/color/colormaps_reference.html
+        :param title:         Title for the heatmap. Default is None.
+        :param y_true         Ground truth label
+        :param y_pred         Predicted label
+        :return:
+        """
+        # CODE TO GENERATE TEXT INSIDE EACH SQUARE
+        blanks = ['' for i in range(cf.size)]
+
+        if group_names and len(group_names) == cf.size:
+            group_labels = ["{}\n".format(value) for value in group_names]
+        else:
+            group_labels = blanks
+
+        if count:
+            group_counts = ["{0:0.0f}\n".format(value) for value in cf.flatten()]
+        else:
+            group_counts = blanks
+
+        if percent:
+            group_percentages = ["{0:.2%}".format(value) for value in cf.flatten() / np.sum(cf)]
+        else:
+            group_percentages = blanks
+
+        box_labels = [f"{v1}{v2}{v3}".strip() for v1, v2, v3 in zip(group_labels, group_counts, group_percentages)]
+        box_labels = np.asarray(box_labels).reshape(cf.shape[0], cf.shape[1])
+
+        # CODE TO GENERATE SUMMARY STATISTICS & TEXT FOR SUMMARY STATS
+        if sum_stats:
+            # Accuracy is sum of diagonal divided by total observations
+            accuracy = np.trace(cf) / float(np.sum(cf))
+
+            # if it is a binary confusion matrix, show some more stats
+            if len(cf) == 2:
+                # Metrics for Binary Confusion Matrices
+                precision = cf[1, 1] / sum(cf[:, 1])
+                recall = cf[1, 1] / sum(cf[1, :])
+                f1_score = 2 * precision * recall / (precision + recall)
+                stats_text = "\n\nAccuracy={:0.3f}\nPrecision={:0.3f}\nRecall={:0.3f}\nF1 Score={:0.3f}".format(
+                    accuracy, precision, recall, f1_score)
+            else:
+                precision = precision_score(y_true=y_true, y_pred=y_pred, average='macro')
+                recall = recall_score(y_true=y_true, y_pred=y_pred, average='macro')
+                f1_score = recall_score(y_true=y_true, y_pred=y_pred, average='macro')
+
+                stats_text = "\n\nAccuracy={:0.3f}\nPrecision={:0.3f}\nRecall={:0.3f}\nF1 Score={:0.3f}".format(
+                    accuracy, precision, recall, f1_score)
+        else:
+            stats_text = ""
+
+        # SET FIGURE PARAMETERS ACCORDING TO OTHER ARGUMENTS
+        if figsize == None:
+            # Get default figure size if not set
+            figsize = plt.rcParams.get('figure.figsize')
+
+        if xyticks == False:
+            # Do not show categories if xyticks is False
+            categories = False
+
+        # MAKE THE HEATMAP VISUALIZATION
+        fig = plt.figure(figsize=figsize)
+        # plt.figure(figsize=figsize)
+        sns.heatmap(cf, annot=box_labels, fmt="", cmap=cmap, cbar=cbar, xticklabels=categories, yticklabels=categories)
+
+        if xyplotlabels:
+            plt.ylabel('True label')
+            plt.xlabel('Predicted label' + stats_text)
+        else:
+            plt.xlabel(stats_text)
+
+        if title:
+            plt.title(title)
+
+        fig.savefig('src/output/confusion_matrix_summary.png', bbox_inches="tight")
+        plt.close()
 
 
 # class SentimentAnalysis2:

@@ -1,4 +1,4 @@
-from src.data_preparation import DataPreparation, SentimentAnalysis
+from src.data_preparation import DataPreparation, SentimentAnalysis, ModelEvaluation
 from pyhocon import ConfigFactory
 import pandas as pd
 
@@ -33,16 +33,64 @@ if __name__ == '__main__':
                                ])
         sample_df.to_excel("src/output/random_sample_to_label.xlsx")
 
+    # Model evaluation
+    # Th
+    y_true = pd.read_excel
 
-        df_sample = vader_df.groupby("sentiment_vader", group_keys=False).apply(lambda x: x.sample(frac=0.1))
-        print("df_sample row count\n", df_sample["predictions"].value_counts())
-        print("")
-        print("df_sample share\n", df_sample["predictions"].value_counts(normalize=True).round(1))
 
-    len(vader_df[vader_df["sentiment_vader"] == "positive"].sample(frac=0.05))
-    # 25 negatives
-    # 25 neutral
-    # 25 positive
+    # evaluation_metrics = ModelEvaluation(data=combined_df)
+    # cf_matrix = evaluation_metrics.run(y_true=combined_df["random_labels"], y_pred=combined_df["sentiment_vader"])
+    #
+    # from sklearn.metrics import confusion_matrix, precision_score, recall_score
+    #
+    # precisioon_ = precision_score(y_true=combined_df["random_labels"], y_pred=combined_df["sentiment_vader"], average='macro')
+    # recall_ = recall_score(y_true=combined_df["random_labels"], y_pred=combined_df["sentiment_vader"],
+    #                               average='macro')
+    # f = recall_score(y_true=combined_df["random_labels"], y_pred=combined_df["sentiment_vader"],
+    #                               average='macro')
+    #
+    # from sklearn import metrics
+    # import seaborn as sns
+    #
+    # clf_report = metrics.classification_report(y_true=combined_df["random_labels"],
+    #                                             y_pred=combined_df["sentiment_vader"],
+    #                                             digits=3,
+    #                                             labels=["negative", "positive", "neutral"],
+    #                                             target_names=["negative", "positive", "neutral"],
+    #                                             output_dict=True
+    #                                             )
+    #
+    # import matplotlib.pyplot as plt
+    # fig = plt.figure(figsize=(10, 4))
+    # sns.heatmap(pd.DataFrame(clf_report).iloc[:-1, :].T, annot=True)
+    # fig.savefig('src/output/classification_report.png', bbox_inches="tight")
+    # plt.close()
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    # labels = ['True Neg', 'False Pos', 'False Neg', 'True Pos']
+    # categories = ['Zero', 'One']
+    # make_confusion_matrix(cf_matrix,
+    #                       group_names=labels,
+    #                       categories=categories,
+    #                       cmap='binary')
+
+    # pd.DataFrame(confusion_matrix(y_test="random_labels", y_pred="sentiment_vader", columns=labels, index=labels))
+
+    #
+    # TODO: majority voting
+    # TODO: scoring (f1-score, precision, recall)
+    # TODO: word cloud (pick 2-3)
+
+        # # Select only cases that have both 'electronic' and 'government'
+        # nlp_df = nlp_df[(nlp_df["translated_body"].str.contains("electronic")) & (
+        #     nlp_df["translated_body"].str.contains("government"))]
+        # nlp_df.reset_index(drop=True, inplace=True)
+        # self.data_size(nlp_df, message="electronic government")
 
 
     # Evaluate data
