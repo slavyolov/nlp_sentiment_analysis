@@ -49,5 +49,6 @@ if __name__ == '__main__':
     combined_df_w_expert_gt = combined_df[combined_df["ground_truth_label"].isnull() == False]
     combined_df_w_existing_label = combined_df[combined_df["existing_label_from_RNN_model"].isnull() == False]
 
+    combined_df.to_excel("src/output/data/combined_df.xlsx")
     combined_df_w_expert_gt.to_excel("src/output/data/combined_df_w_expert_gt.xlsx")
     combined_df_w_existing_label.to_excel("src/output/data/combined_df_w_existing_label.xlsx")

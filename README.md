@@ -1,3 +1,10 @@
+# Project information
+
+This is a university course project. Contributors :
+   - Slav Yolov
+   - Lyuben Zarev
+   - George Stoyanov
+
 # macOS setup
 
 ### install pyenv (optional)

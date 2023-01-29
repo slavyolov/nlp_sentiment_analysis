@@ -54,7 +54,7 @@ class DataPreparation:
         fig = plt.figure(figsize=(10, 4))
         plt.xticks(rotation=45)
         sns.barplot(data=source_names_count[:5], x="source_name", y="count")
-        fig.savefig('src/output/bar_plot_source_names.png', bbox_inches="tight")
+        fig.savefig('src/output/plots/eda/bar_plot_source_names.png', bbox_inches="tight")
         plt.close()
 
         # take the labels from the Annotated field / RNN model :
