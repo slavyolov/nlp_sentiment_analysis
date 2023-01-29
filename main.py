@@ -1,8 +1,7 @@
-from src.data_preparation import DataPreparation, SentimentAnalysis, ModelEvaluation
+from src.sentiment_analysis import DataPreparation, SentimentAnalysis
 from pyhocon import ConfigFactory
 import pandas as pd
 from collections import Counter
-from evaluation import ModelEvaluation
 
 
 config = ConfigFactory.parse_file('config/COMMON.conf')
@@ -23,7 +22,7 @@ if __name__ == '__main__':
     combined_df = pd.merge(left=combined_df, right=vader_df[["key", "sentiment_vader"]], how="left", on="key")
     combined_df = pd.merge(left=combined_df, right=text_blob_df[["key", "text_blob_sentiments"]], how="left", on="key")
 
-    # get stratified random sample (10% out of each group neutral, negative, positive) based on the vader seintiments
+    # get stratified random sample (25 sample for each group neutral, negative, positive) based on the vader sentiments
     if relabel:
         sample_v_p = combined_df[combined_df["sentiment_vader"] == "positive"].sample(n=25)
         sample_v_neu = combined_df[combined_df["sentiment_vader"] == "neutral"].sample(n=25)

@@ -8,7 +8,6 @@ import seaborn as sns
 from setup_logger import create_logger
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from textblob import TextBlob
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 
 
 class DataPreparation:
